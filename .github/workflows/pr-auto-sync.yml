@@ -87,8 +87,14 @@ jobs:
           do
             AUTO_BRANCH="auto/${PR_BRANCH}_to_${TARGET}"
 
-            git fetch origin
-            git checkout $AUTO_BRANCH
+            git fetch origin $TARGET $AUTO_BRANCH
+
+            if ! git show-ref --verify --quiet "refs/remotes/origin/$AUTO_BRANCH"; then
+              echo "Remote branch origin/$AUTO_BRANCH does not exist, skipping"
+              continue
+            fi
+
+            git checkout -B $AUTO_BRANCH origin/$AUTO_BRANCH
 
             git reset --hard origin/$TARGET
 
