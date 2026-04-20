@@ -44,6 +44,16 @@ jobs:
       - name: Handle PR Open
         if: github.event.action == 'opened'
         run: |
+          apply_commit() {
+            COMMIT="$1"
+
+            if [ "$(git rev-list --parents -n 1 "$COMMIT" | wc -w)" -gt 2 ]; then
+              git cherry-pick -m 1 "$COMMIT"
+            else
+              git cherry-pick "$COMMIT"
+            fi
+          }
+
           for TARGET in stg develop
           do
             AUTO_BRANCH="auto/${PR_BRANCH}_to_${TARGET}"
@@ -59,7 +69,10 @@ jobs:
 
             # Cherry-pick commits
             while read COMMIT; do
-              git cherry-pick $COMMIT || echo "Conflict in $COMMIT"
+              if ! apply_commit "$COMMIT"; then
+                echo "Conflict in $COMMIT"
+                git cherry-pick --abort || true
+              fi
             done < commits.txt
 
             git push origin $AUTO_BRANCH
@@ -83,6 +96,16 @@ jobs:
       - name: Handle PR Update
         if: github.event.action == 'synchronize'
         run: |
+          apply_commit() {
+            COMMIT="$1"
+
+            if [ "$(git rev-list --parents -n 1 "$COMMIT" | wc -w)" -gt 2 ]; then
+              git cherry-pick -m 1 "$COMMIT"
+            else
+              git cherry-pick "$COMMIT"
+            fi
+          }
+
           for TARGET in stg develop
           do
             AUTO_BRANCH="auto/${PR_BRANCH}_to_${TARGET}"
@@ -102,12 +125,16 @@ jobs:
             CONFLICT=false
 
             while read COMMIT; do
-              git cherry-pick $COMMIT || CONFLICT=true
+              if ! apply_commit "$COMMIT"; then
+                CONFLICT=true
+                git cherry-pick --abort || true
+                break
+              fi
             done < commits.txt
 
             if [ "$CONFLICT" = true ]; then
               gh pr comment $PR_NUMBER --body "⚠️ Conflict while syncing to $TARGET. Manual fix required."
-              gh pr edit $PR_NUMBER --add-label "conflict"
+              gh pr edit $PR_NUMBER --add-label "conflict" || true
               exit 0
             fi
 
