@@ -54,6 +54,15 @@ jobs:
             fi
           }
 
+          ensure_pr_label() {
+            TARGET="$1"
+            PR_ID=$(gh pr list --head "$AUTO_BRANCH" --base "$TARGET" --json number -q '.[0].number')
+
+            if [ -n "$PR_ID" ]; then
+              gh pr edit "$PR_ID" --add-label "auto-generated" || true
+            fi
+          }
+
           for TARGET in stg develop
           do
             AUTO_BRANCH="auto/${PR_BRANCH}_to_${TARGET}"
@@ -85,9 +94,10 @@ jobs:
                 --base $TARGET \
                 --head $AUTO_BRANCH \
                 --title "Auto: $PR_BRANCH → $TARGET" \
-                --body "Auto-generated PR" \
-                --label "auto-generated"
+                --body "Auto-generated PR"
             fi
+
+            ensure_pr_label "$TARGET"
           done
 
       # =========================
@@ -103,6 +113,15 @@ jobs:
               git cherry-pick -m 1 "$COMMIT"
             else
               git cherry-pick "$COMMIT"
+            fi
+          }
+
+          ensure_pr_label() {
+            TARGET="$1"
+            PR_ID=$(gh pr list --head "$AUTO_BRANCH" --base "$TARGET" --json number -q '.[0].number')
+
+            if [ -n "$PR_ID" ]; then
+              gh pr edit "$PR_ID" --add-label "auto-generated" || true
             fi
           }
 
@@ -147,9 +166,10 @@ jobs:
                 --base $TARGET \
                 --head $AUTO_BRANCH \
                 --title "Auto: $PR_BRANCH → $TARGET" \
-                --body "Auto-generated PR" \
-                --label "auto-generated"
+                --body "Auto-generated PR"
             fi
+
+            ensure_pr_label "$TARGET"
           done
 
       # =========================
