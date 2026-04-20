@@ -87,14 +87,15 @@ jobs:
           do
             AUTO_BRANCH="auto/${PR_BRANCH}_to_${TARGET}"
 
-            git fetch origin $TARGET $AUTO_BRANCH
+            git fetch origin $TARGET
 
-            if ! git show-ref --verify --quiet "refs/remotes/origin/$AUTO_BRANCH"; then
-              echo "Remote branch origin/$AUTO_BRANCH does not exist, skipping"
-              continue
+            if git ls-remote --exit-code --heads origin $AUTO_BRANCH; then
+              git fetch origin $AUTO_BRANCH
+              git checkout -B $AUTO_BRANCH origin/$AUTO_BRANCH
+            else
+              echo "Remote branch $AUTO_BRANCH does not exist, creating it from $TARGET"
+              git checkout -B $AUTO_BRANCH origin/$TARGET
             fi
-
-            git checkout -B $AUTO_BRANCH origin/$AUTO_BRANCH
 
             git reset --hard origin/$TARGET
 
@@ -111,6 +112,17 @@ jobs:
             fi
 
             git push --force origin $AUTO_BRANCH
+
+            EXISTING_PR=$(gh pr list --head $AUTO_BRANCH --base $TARGET --json number -q '.[0].number')
+
+            if [ -z "$EXISTING_PR" ]; then
+              gh pr create \
+                --base $TARGET \
+                --head $AUTO_BRANCH \
+                --title "Auto: $PR_BRANCH → $TARGET" \
+                --body "Auto-generated PR" \
+                --label "auto-generated"
+            fi
           done
 
       # =========================
