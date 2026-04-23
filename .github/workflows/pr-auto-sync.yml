@@ -93,6 +93,12 @@ jobs:
               EXISTING_PR=$(gh pr list --head $AUTO_BRANCH --base $TARGET --json number -q '.[0].number')
               if [ -n "$EXISTING_PR" ]; then
                 gh pr edit "$EXISTING_PR" --body-file pr_body.txt
+              else
+                gh pr create \
+                  --base $TARGET \
+                  --head $AUTO_BRANCH \
+                  --title "Auto: $PR_BRANCH → $TARGET" \
+                  --body-file pr_body.txt
               fi
               ensure_pr_label "$TARGET"
               continue
@@ -100,6 +106,7 @@ jobs:
 
             git fetch origin
             git checkout origin/$TARGET -b $AUTO_BRANCH
+            TARGET_CONFLICT=false
 
             # Cherry-pick commits
             while read COMMIT; do
@@ -107,8 +114,15 @@ jobs:
                 echo "Conflict in $COMMIT"
                 git cherry-pick --abort || true
                 HAS_CONFLICT=true
+                TARGET_CONFLICT=true
+                break
               fi
             done < commits.txt
+
+            if [ "$TARGET_CONFLICT" = true ]; then
+              echo "Conflict detected on $TARGET. Using source PR head so PR is still created and conflict is visible in GitHub."
+              git reset --hard "$PR_HEAD_SHA"
+            fi
 
             git push origin $AUTO_BRANCH
 
@@ -185,14 +199,22 @@ jobs:
             fi
 
             git reset --hard origin/$TARGET
+            TARGET_CONFLICT=false
 
             while read COMMIT; do
               if ! apply_commit "$COMMIT"; then
                 echo "Conflict in $COMMIT on $TARGET"
                 git cherry-pick --abort || true
                 HAS_CONFLICT=true
+                TARGET_CONFLICT=true
+                break
               fi
             done < commits.txt
+
+            if [ "$TARGET_CONFLICT" = true ]; then
+              echo "Conflict detected on $TARGET. Using source PR head so PR is still created and conflict is visible in GitHub."
+              git reset --hard "$PR_HEAD_SHA"
+            fi
 
             git push --force origin $AUTO_BRANCH
 
