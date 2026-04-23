@@ -89,7 +89,12 @@ jobs:
 
             # Check if branch exists
             if git ls-remote --exit-code --heads origin $AUTO_BRANCH; then
-              echo "Branch exists, skipping creation"
+              echo "Branch exists, syncing PR body"
+              EXISTING_PR=$(gh pr list --head $AUTO_BRANCH --base $TARGET --json number -q '.[0].number')
+              if [ -n "$EXISTING_PR" ]; then
+                gh pr edit "$EXISTING_PR" --body-file pr_body.txt
+              fi
+              ensure_pr_label "$TARGET"
               continue
             fi
 
